@@ -1,0 +1,10 @@
+/Library
+/Temp
+/*.csproj
+/.vs
+/*.sln
+/Logs
+/QCAR
+/obj
+/.gradle
+/Assembly-CSharp.csproj.user
