@@ -16,8 +16,11 @@ public class GameController : MonoBehaviour
     [SerializeField] private BoardData m_boardData;
 
     [SerializeField] private int m_rows;
+    public int Rows => m_rows;
+
     [SerializeField] private int m_cols;
-    
+    public int Cols => m_cols;
+
     private int[] m_board;
 
     [SerializeField] private float m_pieceDistance;
@@ -130,33 +133,30 @@ public class GameController : MonoBehaviour
 
             if (!animate) m_state = GameState.Idle;
         }
-        else
+        else if (Merge())
         {
-            if (Merge())
+            for (int i = m_rows - 1; i >= 0; i--)
             {
-                for (int i = m_rows - 1; i >= 0; i--)
+                for (int j = 0; j < m_cols; j++)
                 {
-                    for (int j = 0; j < m_cols; j++)
+                    PieceController piece = GetPieceAt(i, j);
+
+                    if (piece)
                     {
-                        PieceController piece = GetPieceAt(i, j);
+                        int row = FindEmptyRow(i, j);
 
-                        if (piece)
+                        if (row >= 0)
                         {
-                            int row = FindEmptyRow(i, j);
+                            SetPieceAt(i, j, null);
+                            SetPieceAt(row, j, piece);
 
-                            if (row >= 0)
-                            {
-                                SetPieceAt(i, j, null);
-                                SetPieceAt(row, j, piece);
-                                
-                                m_state = GameState.Animation;
-                            }
-                        }
-
-                        if (SpawnNewPieces(j))
-                        {
                             m_state = GameState.Animation;
                         }
+                    }
+
+                    if (SpawnNewPieces(j))
+                    {
+                        m_state = GameState.Animation;
                     }
                 }
             }
@@ -185,84 +185,183 @@ public class GameController : MonoBehaviour
         return true;
     }
 
+    public bool WillMerge(PieceController piece)
+    {
+        List<PieceController> pieces;
+
+        return WillMerge(piece, out pieces);
+    }
+
+    public bool WillMerge(PieceController piece, out List<PieceController> pieces)
+    {
+        pieces = new List<PieceController>();
+
+        if (!piece || piece.removed) return false;
+
+        bool merged = false;
+
+        int minRow, maxRow, minCol, maxCol;
+
+        int row = piece.Row;
+        int col = piece.Col;
+
+        minRow = maxRow = piece.Row;
+        minCol = maxCol = piece.Col;
+
+        while (minRow > 0 && GetPieceAt(minRow - 1, col) is PieceController other && other.PieceType == piece.PieceType)
+        {
+            minRow--;
+        }
+
+        while (maxRow < m_rows - 1 && GetPieceAt(maxRow + 1, col) is PieceController other && other.PieceType == piece.PieceType)
+        {
+            maxRow++;
+        }
+
+        while (minCol > 0 && GetPieceAt(row, minCol - 1) is PieceController other && other.PieceType == piece.PieceType)
+        {
+            minCol--;
+        }
+
+        while (maxCol < m_cols - 1 && GetPieceAt(row, maxCol + 1) is PieceController other && other.PieceType == piece.PieceType)
+        {
+            maxCol++;
+        }
+
+        if (maxRow - minRow + 1 >= 3)
+        {
+            for (int i = minRow; i <= maxRow; i++)
+            {
+                PieceController other = GetPieceAt(i, col);
+
+                if (other) pieces.Add(other);
+            }
+
+            merged = true;
+        }
+
+        if (maxCol - minCol + 1 >= 3)
+        {
+            for (int j = minCol; j <= maxCol; j++)
+            {
+                PieceController other = GetPieceAt(row, j);
+
+                if (other) pieces.Add(other);
+            }
+
+            merged = true;
+        }
+
+        return merged;
+    }
+
     private bool Merge()
     {
         bool merged = false;
 
         foreach (PieceController piece in m_pieces)
         {
-            if (!piece || piece.removed) continue;
+            List<PieceController> pieces;
 
-            int minRow, maxRow, minCol, maxCol;
-
-            int row = piece.Row;
-            int col = piece.Col;
-
-            minRow = maxRow = piece.Row;
-            minCol = maxCol = piece.Col;
-
-            while (minRow > 0 && GetPieceAt(minRow - 1, col) is PieceController other && other.PieceType == piece.PieceType)
+            if (WillMerge(piece, out pieces))
             {
-                minRow--;
-            }
-
-            while (maxRow < m_rows - 1 && GetPieceAt(maxRow + 1, col) is PieceController other && other.PieceType == piece.PieceType)
-            {
-                maxRow++;
-            }
-
-            while (minCol > 0 && GetPieceAt(row, minCol - 1) is PieceController other && other.PieceType == piece.PieceType)
-            {
-                minCol--;
-            }
-
-            while (maxCol < m_cols - 1 && GetPieceAt(row, maxCol + 1) is PieceController other && other.PieceType == piece.PieceType)
-            {
-                maxCol++;
-            }
-
-            if (maxRow - minRow + 1 >= 3)
-            {
-                for (int i = minRow; i <= maxRow; i++)
+                foreach (PieceController other in pieces)
                 {
-                    PieceController other = GetPieceAt(i, col);
+                    int row = other.Row;
+                    int col = other.Col;
 
-                    if (other)
-                    {
-                        other.removed = true;
-                        other.transform.localScale = new Vector3(0.5f, 0.5f, 0.5f);
+                    other.removed = true;
+                    other.transform.localScale = new Vector3(0.5f, 0.5f, 0.5f);
 
-                        Destroy(other.gameObject);
+                    Destroy(other.gameObject);
 
-                        SetPieceAt(i, col, null);
-                    }
+                    SetPieceAt(row, col, null);
                 }
 
                 merged = true;
             }
 
-            if (maxCol - minCol + 1 >= 3)
-            {
-                for (int j = minCol; j <= maxCol; j++)
-                {
-                    PieceController other = GetPieceAt(row, j);
+            //if (!piece || piece.removed) continue;
 
-                    if (other)
-                    {
-                        other.removed = true;
-                        other.transform.localScale = new Vector3(0.5f, 0.5f, 0.5f);
+            //int minRow, maxRow, minCol, maxCol;
 
-                        Destroy(other.gameObject);
+            //int row = piece.Row;
+            //int col = piece.Col;
 
-                        SetPieceAt(row, j, null);
-                    }
-                }
+            //minRow = maxRow = piece.Row;
+            //minCol = maxCol = piece.Col;
 
-                merged = true;
-            }
+            //while (minRow > 0 && GetPieceAt(minRow - 1, col) is PieceController other && other.PieceType == piece.PieceType)
+            //{
+            //    minRow--;
+            //}
+
+            //while (maxRow < m_rows - 1 && GetPieceAt(maxRow + 1, col) is PieceController other && other.PieceType == piece.PieceType)
+            //{
+            //    maxRow++;
+            //}
+
+            //while (minCol > 0 && GetPieceAt(row, minCol - 1) is PieceController other && other.PieceType == piece.PieceType)
+            //{
+            //    minCol--;
+            //}
+
+            //while (maxCol < m_cols - 1 && GetPieceAt(row, maxCol + 1) is PieceController other && other.PieceType == piece.PieceType)
+            //{
+            //    maxCol++;
+            //}
+
+            //if (maxRow - minRow + 1 >= 3)
+            //{
+            //    for (int i = minRow; i <= maxRow; i++)
+            //    {
+            //        PieceController other = GetPieceAt(i, col);
+
+            //        if (other)
+            //        {
+            //            other.removed = true;
+            //            other.transform.localScale = new Vector3(0.5f, 0.5f, 0.5f);
+
+            //            Destroy(other.gameObject);
+
+            //            SetPieceAt(i, col, null);
+            //        }
+            //    }
+
+            //    merged = true;
+            //}
+
+            //if (maxCol - minCol + 1 >= 3)
+            //{
+            //    for (int j = minCol; j <= maxCol; j++)
+            //    {
+            //        PieceController other = GetPieceAt(row, j);
+
+            //        if (other)
+            //        {
+            //            other.removed = true;
+            //            other.transform.localScale = new Vector3(0.5f, 0.5f, 0.5f);
+
+            //            Destroy(other.gameObject);
+
+            //            SetPieceAt(row, j, null);
+            //        }
+            //    }
+
+            //    merged = true;
+            //}
         }
 
         return merged;
+    }
+
+    public void SwapPieces(PieceController piece, PieceController other)
+    {
+        int row = piece.Row;
+        int col = piece.Col;
+
+        SetPieceAt(other.Row, other.Col, piece);
+        SetPieceAt(row, col, other);
     }
 
     private PieceController SpawnPiece(int row, int col, int pieceType)
@@ -290,7 +389,7 @@ public class GameController : MonoBehaviour
         return SpawnPiece(row, col, pieceType);
     }
 
-    private void SetPieceAt(int row, int col, PieceController piece)
+    public void SetPieceAt(int row, int col, PieceController piece)
     {
         m_pieces[GetIndex(row, col)] = piece;
 
@@ -331,7 +430,7 @@ public class GameController : MonoBehaviour
         return row;
     }
 
-    private PieceController GetPieceAt(int row, int col)
+    public PieceController GetPieceAt(int row, int col)
     {
         if (row < 0 || row >= m_rows || col < 0 || col >= m_cols)
             throw new Exception("Invalid position");
@@ -339,7 +438,7 @@ public class GameController : MonoBehaviour
         return m_pieces[GetIndex(row, col)];
     }
 
-    private Vector3 GetPiecePosition(int row, int col)
+    public Vector3 GetPiecePosition(int row, int col)
     {
         Vector3 position = m_container.transform.position;
         return new Vector3(position.x + col * m_pieceDistance, position.y - row * m_pieceDistance);
