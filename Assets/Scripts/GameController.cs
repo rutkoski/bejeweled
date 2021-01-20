@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using UnityEngine;
 
 [RequireComponent(typeof(PieceFactory))]
+[RequireComponent(typeof(AnimationController))]
 public class GameController : MonoBehaviour
 {
     public static GameController Instance { get; private set; }
@@ -12,7 +13,10 @@ public class GameController : MonoBehaviour
     {
         Init,
         Idle,
-        Animation,
+        Dropping,
+        Merging,
+        Spawning,
+        Swapping,
     }
 
     [SerializeField] private BoardData m_boardData;
@@ -33,6 +37,7 @@ public class GameController : MonoBehaviour
     private PieceFactory m_pieceFactory;
 
     private PieceController[] m_pieces;
+    public PieceController[] Pieces => m_pieces;
 
     private GameState m_state;
     public GameState State => m_state;
@@ -99,7 +104,7 @@ public class GameController : MonoBehaviour
             }
         }
 
-        m_state = GameState.Animation;
+        m_state = GameState.Dropping;
     }
 
     public int GetIndex(int row, int col)
@@ -117,7 +122,7 @@ public class GameController : MonoBehaviour
 
         if (m_state == GameState.Init) return;
 
-        if (m_state == GameState.Animation)
+        if (m_state == GameState.Dropping)
         {
             bool animate = false;
 
@@ -125,25 +130,26 @@ public class GameController : MonoBehaviour
             {
                 if (!piece || piece.Removed) continue;
 
-                Vector3 sourcePos = piece.transform.position;
-                Vector3 targetPos = GetPiecePosition(piece.Row, piece.Col);
-
-                float dist = (sourcePos - targetPos).magnitude;
-
-                if (dist > 0.01f)
-                {
-                    animate = true;
-
-                    //targetPos = Vector3.Lerp(sourcePos, targetPos, 2f * Time.deltaTime);
-                    targetPos = new Vector3(sourcePos.x, Mathf.Max(targetPos.y, sourcePos.y - 3f * Time.deltaTime));
-                }
-
-                piece.transform.position = targetPos;
+                animate |= AnimationController.Instance.AnimatePieceDrop(piece);
             }
 
             if (!animate) m_state = GameState.Idle;
         }
-        else if (Merge())
+        else if (m_state == GameState.Swapping)
+        {
+            if (!AnimationController.Instance.HasSwapJobs())
+            {
+                m_state = GameState.Idle;
+            }
+        }
+        else if (m_state == GameState.Merging)
+        {
+            if (!AnimationController.Instance.AnimateMerge())
+            {
+                m_state = GameState.Spawning;
+            }
+        }
+        else if (m_state == GameState.Spawning)
         {
             for (int i = m_rows - 1; i >= 0; i--)
             {
@@ -160,16 +166,20 @@ public class GameController : MonoBehaviour
                             SetPieceAt(i, j, null);
                             SetPieceAt(row, j, piece);
 
-                            m_state = GameState.Animation;
+                            m_state = GameState.Dropping;
                         }
                     }
 
                     if (SpawnNewPieces(j))
                     {
-                        m_state = GameState.Animation;
+                        m_state = GameState.Dropping;
                     }
                 }
             }
+        }
+        else if (Merge())
+        {
+            m_state = GameState.Merging;
         }
     }
 
@@ -279,11 +289,7 @@ public class GameController : MonoBehaviour
                     int col = other.Col;
 
                     other.Removed = true;
-                    other.transform.localScale = new Vector3(0.5f, 0.5f, 0.5f);
-
-                    Destroy(other.gameObject);
-
-                    SetPieceAt(row, col, null);
+                    other.Merging = true;
                 }
 
                 merged = true;
@@ -300,6 +306,11 @@ public class GameController : MonoBehaviour
 
         SetPieceAt(other.Row, other.Col, piece);
         SetPieceAt(row, col, other);
+
+        //piece.transform.position = GetPiecePosition(piece.Row, piece.Col);
+        //other.transform.position = GetPiecePosition(other.Row, other.Col);
+
+        m_state = GameState.Swapping;
     }
 
     private PieceController SpawnPiece(int row, int col, int pieceType)
@@ -357,8 +368,6 @@ public class GameController : MonoBehaviour
     {
         if (row < 0 || row >= m_rows || col < 0 || col >= m_cols)
             throw new Exception("Invalid position");
-
-        //row--;
 
         while (row < m_rows - 1 && !GetPieceAt(row + 1, col))
         {

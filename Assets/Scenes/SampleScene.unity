@@ -147,7 +147,7 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 67607565}
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -1.24, y: 0.94, z: 0}
+  m_LocalPosition: {x: -1.9, y: 1.87, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_Children: []
   m_Father: {fileID: 0}
@@ -422,6 +422,7 @@ GameObject:
   - component: {fileID: 1071687530}
   - component: {fileID: 1071687529}
   - component: {fileID: 1071687531}
+  - component: {fileID: 1071687532}
   m_Layer: 0
   m_Name: '[GameController]'
   m_TagString: Untagged
@@ -442,8 +443,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   m_boardData: {fileID: 0}
-  m_rows: 3
-  m_cols: 3
+  m_rows: 4
+  m_cols: 4
   m_pieceDistance: 1.2
   m_container: {fileID: 67607566}
 --- !u!4 &1071687530
@@ -472,7 +473,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 2d779315ee372f54dbf1e3ceb6a0e94a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  game: {fileID: 1071687529}
   m_piecePrefab: {fileID: -2967699284172958323, guid: b6a66bf3b483faf47b71c6f18a4da4e6, type: 3}
   m_colors:
   - serializedVersion: 2
@@ -483,3 +483,18 @@ MonoBehaviour:
     rgba: 4278255360
   - serializedVersion: 2
     rgba: 4278255615
+--- !u!114 &1071687532
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1071687528}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ffd9d1815863e6743baf6dbf8475d32c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  pieceDropSpeed: 4
+  pieceSwapSpeed: 3
+  pieceMergeSpeed: 3

@@ -20,15 +20,20 @@ public class PieceDragController : MonoBehaviour, IInitializePotentialDragHandle
     private bool m_horizontal;
     private int m_min;
     private int m_max;
-    private PieceController other;
 
     public void OnInitializePotentialDrag(PointerEventData eventData)
     {
+        if (Game.State != GameController.GameState.Idle) return;
+        if (piece.Removed) return;
+
         m_initPos = eventData.position;
     }
 
     public void OnBeginDrag(PointerEventData eventData)
     {
+        if (Game.State != GameController.GameState.Idle) return;
+        if (piece.Removed) return;
+
         m_horizontal = Mathf.Abs(m_initPos.x - eventData.position.x) > Mathf.Abs(m_initPos.y - eventData.position.y);
 
         if (m_horizontal)
@@ -47,12 +52,10 @@ public class PieceDragController : MonoBehaviour, IInitializePotentialDragHandle
 
     public void OnDrag(PointerEventData eventData)
     {
-        if (!m_dragging) return;
+        if (Game.State != GameController.GameState.Idle) return;
+        if (piece.Removed) return;
 
-        if (other)
-        {
-            other.transform.position = Game.GetPiecePosition(other.Row, other.Col);
-        }
+        if (!m_dragging) return;
 
         int row = piece.Row;
         int col = piece.Col;
@@ -86,24 +89,18 @@ public class PieceDragController : MonoBehaviour, IInitializePotentialDragHandle
 
         if (row != -1 && col != -1)
         {
-            other = Game.GetPieceAt(row, col);
-            other.transform.position = Game.GetPiecePosition(piece.Row, piece.Col);
-
-            transform.position = Game.GetPiecePosition(row, col);
+            PieceController other = Game.GetPieceAt(row, col);
 
             Game.SwapPieces(piece, other);
 
             if (!Game.WillMerge(piece) && !Game.WillMerge(other))
             {
                 Game.SwapPieces(piece, other);
-
-                transform.position = Game.GetPiecePosition(piece.Row, piece.Col);
-                other.transform.position = Game.GetPiecePosition(other.Row, other.Col);
             }
-        }
-        else
-        {
-            transform.position = Game.GetPiecePosition(piece.Row, piece.Col);
+            else
+            {
+                AnimationController.Instance.AnimateSwap(piece, other);
+            }
         }
 
         StopDrag();
@@ -111,19 +108,11 @@ public class PieceDragController : MonoBehaviour, IInitializePotentialDragHandle
 
     public void OnEndDrag(PointerEventData eventData)
     {
-        //StopDrag();
+        //
     }
 
     private void StopDrag()
     {
         m_dragging = false;
-
-        if (other)
-        {
-            //other.transform.position = game.GetPiecePosition(other.Row, other.Col);
-            //transform.position = game.GetPiecePosition(Row, Col);
-
-            other = null;
-        }
     }
 }
