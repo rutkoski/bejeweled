@@ -83,6 +83,11 @@ public class AnimationController : MonoBehaviour
     {
         private PieceController m_piece;
         private PieceController m_other;
+
+        private float m_speed;
+
+        private bool m_revert;
+        private bool m_reverting;
         
         private bool m_animated;
         public bool Animated => m_animated;
@@ -90,13 +95,25 @@ public class AnimationController : MonoBehaviour
         private LinearTween m_tween0;
         private LinearTween m_tween1;
 
-        public SwapJob(PieceController piece, PieceController other, float speed)
+        public SwapJob(PieceController piece, PieceController other, float speed, bool revert = false)
         {
             m_piece = piece;
             m_other = other;
 
-            m_tween0 = new LinearTween(piece.transform, piece.transform.position, GameController.Instance.GetPiecePosition(piece.Row, piece.Col), speed);
-            m_tween1 = new LinearTween(other.transform, other.transform.position, GameController.Instance.GetPiecePosition(other.Row, other.Col), speed);
+            m_speed = speed;
+
+            m_revert = revert;
+
+            if (m_revert)
+            {
+                m_tween0 = new LinearTween(piece.transform, piece.transform.position, GameController.Instance.GetPiecePosition(other.Row, other.Col), speed);
+                m_tween1 = new LinearTween(other.transform, other.transform.position, GameController.Instance.GetPiecePosition(piece.Row, piece.Col), speed);
+            }
+            else
+            {
+                m_tween0 = new LinearTween(piece.transform, piece.transform.position, GameController.Instance.GetPiecePosition(piece.Row, piece.Col), speed);
+                m_tween1 = new LinearTween(other.transform, other.transform.position, GameController.Instance.GetPiecePosition(other.Row, other.Col), speed);
+            }
         }
 
         public void Animate()
@@ -105,6 +122,15 @@ public class AnimationController : MonoBehaviour
             bool b = m_tween1.Animate();
 
             m_animated = a || b;
+
+            if (m_revert && !m_animated && !m_reverting)
+            {
+                m_tween0 = new LinearTween(m_piece.transform, m_piece.transform.position, GameController.Instance.GetPiecePosition(m_piece.Row, m_piece.Col), m_speed);
+                m_tween1 = new LinearTween(m_other.transform, m_other.transform.position, GameController.Instance.GetPiecePosition(m_other.Row, m_other.Col), m_speed);
+
+                m_reverting = true;
+                m_animated = true;
+            }
         }
     }
 
@@ -113,6 +139,11 @@ public class AnimationController : MonoBehaviour
     public void AnimateSwap(PieceController piece, PieceController other)
     {
         m_swaps.Add(new SwapJob(piece, other, pieceSwapSpeed));
+    }
+
+    public void AnimateSwapRevert(PieceController piece, PieceController other)
+    {
+        m_swaps.Add(new SwapJob(piece, other, pieceSwapSpeed, true));
     }
 
     public bool HasSwapJobs()

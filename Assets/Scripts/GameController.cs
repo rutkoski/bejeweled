@@ -7,6 +7,10 @@ using UnityEngine;
 [RequireComponent(typeof(AnimationController))]
 public class GameController : MonoBehaviour
 {
+    public delegate void ScoreUpdatedEvent(object sender, EventArgs args);
+
+    public static event ScoreUpdatedEvent OnScoreUpdated;
+
     public static GameController Instance { get; private set; }
 
     public enum GameState
@@ -18,6 +22,8 @@ public class GameController : MonoBehaviour
         Spawning,
         Swapping,
     }
+
+    [SerializeField] private int m_mergeScore;
 
     [SerializeField] private BoardData m_boardData;
 
@@ -42,6 +48,9 @@ public class GameController : MonoBehaviour
     private GameState m_state;
     public GameState State => m_state;
 
+    private int m_score = 0;
+    public int Score => m_score;
+
     private void Awake()
     {
         if (Instance) Destroy(gameObject);
@@ -57,12 +66,19 @@ public class GameController : MonoBehaviour
 
     private void Start()
     {
+        RestartGame();
+    }
+
+    public void RestartGame()
+    {
         ResetGame();
         StartGame();
     }
 
     private void ResetGame()
     {
+        StopAllCoroutines();
+
         m_state = GameState.Init;
 
         if (m_pieces != null)
@@ -92,6 +108,10 @@ public class GameController : MonoBehaviour
         }
 
         m_pieces = new PieceController[m_rows * m_cols];
+
+        m_score = 0;
+
+        OnScoreUpdated?.Invoke(this, new EventArgs());
     }
 
     public void StartGame()
@@ -104,7 +124,14 @@ public class GameController : MonoBehaviour
             }
         }
 
-        m_state = GameState.Dropping;
+        StartCoroutine(StartGameCoroutine());
+    }
+
+    private IEnumerator StartGameCoroutine()
+    {
+        yield return new WaitForSeconds(1f);
+
+        m_state = GameState.Idle;
     }
 
     public int GetIndex(int row, int col)
@@ -116,8 +143,7 @@ public class GameController : MonoBehaviour
     {
         if (Input.GetKeyDown(KeyCode.N))
         {
-            ResetGame();
-            StartGame();
+            RestartGame();
         }
 
         if (m_state == GameState.Init) return;
@@ -277,6 +303,8 @@ public class GameController : MonoBehaviour
     {
         bool merged = false;
 
+        int score = 0;
+
         foreach (PieceController piece in m_pieces)
         {
             List<PieceController> pieces;
@@ -290,10 +318,19 @@ public class GameController : MonoBehaviour
 
                     other.Removed = true;
                     other.Merging = true;
+
+                    score += m_mergeScore;
                 }
 
                 merged = true;
             }
+        }
+
+        if (score > 0)
+        {
+            m_score += score;
+
+            OnScoreUpdated?.Invoke(this, new EventArgs());
         }
 
         return merged;
