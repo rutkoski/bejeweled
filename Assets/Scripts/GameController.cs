@@ -6,6 +6,8 @@ using UnityEngine;
 [RequireComponent(typeof(PieceFactory))]
 public class GameController : MonoBehaviour
 {
+    public static GameController Instance { get; private set; }
+
     public enum GameState
     {
         Init,
@@ -37,7 +39,15 @@ public class GameController : MonoBehaviour
 
     private void Awake()
     {
+        if (Instance) Destroy(gameObject);
+        Instance = this;
+
         m_pieceFactory = GetComponent<PieceFactory>();
+    }
+
+    private void OnDestroy()
+    {
+        Instance = null;
     }
 
     private void Start()
@@ -113,7 +123,7 @@ public class GameController : MonoBehaviour
 
             foreach (PieceController piece in m_pieces)
             {
-                if (!piece || piece.removed) continue;
+                if (!piece || piece.Removed) continue;
 
                 Vector3 sourcePos = piece.transform.position;
                 Vector3 targetPos = GetPiecePosition(piece.Row, piece.Col);
@@ -161,8 +171,6 @@ public class GameController : MonoBehaviour
                 }
             }
         }
-
-        //Debug.Log(m_state);
     }
 
     private bool SpawnNewPieces(int j)
@@ -196,7 +204,7 @@ public class GameController : MonoBehaviour
     {
         pieces = new List<PieceController>();
 
-        if (!piece || piece.removed) return false;
+        if (!piece || piece.Removed) return false;
 
         bool merged = false;
 
@@ -270,7 +278,7 @@ public class GameController : MonoBehaviour
                     int row = other.Row;
                     int col = other.Col;
 
-                    other.removed = true;
+                    other.Removed = true;
                     other.transform.localScale = new Vector3(0.5f, 0.5f, 0.5f);
 
                     Destroy(other.gameObject);
@@ -280,76 +288,6 @@ public class GameController : MonoBehaviour
 
                 merged = true;
             }
-
-            //if (!piece || piece.removed) continue;
-
-            //int minRow, maxRow, minCol, maxCol;
-
-            //int row = piece.Row;
-            //int col = piece.Col;
-
-            //minRow = maxRow = piece.Row;
-            //minCol = maxCol = piece.Col;
-
-            //while (minRow > 0 && GetPieceAt(minRow - 1, col) is PieceController other && other.PieceType == piece.PieceType)
-            //{
-            //    minRow--;
-            //}
-
-            //while (maxRow < m_rows - 1 && GetPieceAt(maxRow + 1, col) is PieceController other && other.PieceType == piece.PieceType)
-            //{
-            //    maxRow++;
-            //}
-
-            //while (minCol > 0 && GetPieceAt(row, minCol - 1) is PieceController other && other.PieceType == piece.PieceType)
-            //{
-            //    minCol--;
-            //}
-
-            //while (maxCol < m_cols - 1 && GetPieceAt(row, maxCol + 1) is PieceController other && other.PieceType == piece.PieceType)
-            //{
-            //    maxCol++;
-            //}
-
-            //if (maxRow - minRow + 1 >= 3)
-            //{
-            //    for (int i = minRow; i <= maxRow; i++)
-            //    {
-            //        PieceController other = GetPieceAt(i, col);
-
-            //        if (other)
-            //        {
-            //            other.removed = true;
-            //            other.transform.localScale = new Vector3(0.5f, 0.5f, 0.5f);
-
-            //            Destroy(other.gameObject);
-
-            //            SetPieceAt(i, col, null);
-            //        }
-            //    }
-
-            //    merged = true;
-            //}
-
-            //if (maxCol - minCol + 1 >= 3)
-            //{
-            //    for (int j = minCol; j <= maxCol; j++)
-            //    {
-            //        PieceController other = GetPieceAt(row, j);
-
-            //        if (other)
-            //        {
-            //            other.removed = true;
-            //            other.transform.localScale = new Vector3(0.5f, 0.5f, 0.5f);
-
-            //            Destroy(other.gameObject);
-
-            //            SetPieceAt(row, j, null);
-            //        }
-            //    }
-
-            //    merged = true;
-            //}
         }
 
         return merged;
