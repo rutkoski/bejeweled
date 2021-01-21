@@ -21,6 +21,7 @@ public class GameController : MonoBehaviour
         Merging,
         Spawning,
         Swapping,
+        End,
     }
 
     [SerializeField] private int m_mergeScore;
@@ -39,6 +40,7 @@ public class GameController : MonoBehaviour
     public float PieceDistance => m_pieceDistance;
 
     [SerializeField] private Transform m_container;
+    public Transform Container => m_container;
 
     private PieceFactory m_pieceFactory;
 
@@ -66,7 +68,7 @@ public class GameController : MonoBehaviour
 
     private void Start()
     {
-        RestartGame();
+        //RestartGame();
     }
 
     public void RestartGame()
@@ -112,6 +114,8 @@ public class GameController : MonoBehaviour
         m_score = 0;
 
         OnScoreUpdated?.Invoke(this, new EventArgs());
+
+        HasAvailablePlays();
     }
 
     public void StartGame()
@@ -125,13 +129,15 @@ public class GameController : MonoBehaviour
         }
 
         StartCoroutine(StartGameCoroutine());
+
+        GetComponent<UIController>().ShowGame();
     }
 
     private IEnumerator StartGameCoroutine()
     {
         yield return new WaitForSeconds(1f);
 
-        m_state = GameState.Idle;
+        m_state = GameState.Dropping;
     }
 
     public int GetIndex(int row, int col)
@@ -159,7 +165,12 @@ public class GameController : MonoBehaviour
                 animate |= AnimationController.Instance.AnimatePieceDrop(piece);
             }
 
-            if (!animate) m_state = GameState.Idle;
+            if (!animate)
+            {
+                m_state = GameState.Idle;
+
+                CheckEndGame();
+            }
         }
         else if (m_state == GameState.Swapping)
         {
@@ -209,6 +220,16 @@ public class GameController : MonoBehaviour
         }
     }
 
+    private void CheckEndGame()
+    {
+        if (!HasAvailablePlays())
+        {
+            m_state = GameState.End;
+
+            GetComponent<UIController>().ShowEnd();
+        }
+    }
+
     private bool SpawnNewPieces(int j)
     {
         int row = FindEmptyRow(j);
@@ -225,6 +246,111 @@ public class GameController : MonoBehaviour
             row--;
             i--;
         }
+
+        return true;
+    }
+
+    private bool HasAvailablePlays()
+    {
+        bool found = false;
+
+        foreach (PieceController piece in m_pieces)
+        {
+            if (!piece || piece.Removed) continue;
+
+            int row = piece.Row;
+            int col = piece.Col;
+
+            // 10    10
+            // 01 or 10
+            // 10    01
+
+            if (row + 2 < m_rows
+                && (MatchType(piece, GetPieceAt(row + 1, col)) || (col + 1 < m_cols && MatchType(piece, GetPieceAt(row + 1, col + 1))))
+                && (MatchType(piece, GetPieceAt(row + 2, col)) || (col + 1 < m_cols && MatchType(piece, GetPieceAt(row + 2, col + 1))))
+            )
+            {
+                found = true;
+                break;
+            }
+
+            // 01    01
+            // 10 or 01
+            // 01    10
+
+            if (row > 1
+                && (MatchType(piece, GetPieceAt(row - 1, col)) || (col + 1 < m_cols && MatchType(piece, GetPieceAt(row - 1, col + 1))))
+                && (MatchType(piece, GetPieceAt(row - 2, col)) || (col + 1 < m_cols && MatchType(piece, GetPieceAt(row - 2, col + 1))))
+            )
+            {
+                found = true;
+                break;
+            }
+
+            // 1    1
+            // 1 or 0
+            // 0    1
+            // 1    1
+
+            if (row + 3 < m_rows)
+            {
+                int c = 0;
+                c += MatchType(piece, GetPieceAt(row + 1, col)) ? 1 : 0;
+                c += MatchType(piece, GetPieceAt(row + 2, col)) ? 1 : 0;
+                c += MatchType(piece, GetPieceAt(row + 3, col)) ? 1 : 0;
+                if (c >= 2)
+                {
+                    found = true;
+                    break;
+                }
+            }
+
+            // 101 or 110
+            // 010    001
+
+            if (col + 2 < m_cols
+                && (MatchType(piece, GetPieceAt(row, col + 1)) || (row + 1 < m_rows && MatchType(piece, GetPieceAt(row + 1, col + 1))))
+                && (MatchType(piece, GetPieceAt(row, col + 2)) || (row + 1 < m_rows && MatchType(piece, GetPieceAt(row + 1, col + 2))))
+            )
+            {
+                found = true;
+                break;
+            }
+
+            // 010 or 001
+            // 101    110
+
+            if (col > 1
+                && (MatchType(piece, GetPieceAt(row, col - 1)) || (row + 1 < m_rows && MatchType(piece, GetPieceAt(row + 1, col - 1))))
+                && (MatchType(piece, GetPieceAt(row, col - 2)) || (row + 1 < m_rows && MatchType(piece, GetPieceAt(row + 1, col - 2))))
+            )
+            {
+                found = true;
+                break;
+            }
+
+            // 1011 or 1101
+
+            if (col + 3 < m_cols)
+            {
+                int c = 0;
+                c += MatchType(piece, GetPieceAt(row, col + 1)) ? 1 : 0;
+                c += MatchType(piece, GetPieceAt(row, col + 2)) ? 1 : 0;
+                c += MatchType(piece, GetPieceAt(row, col + 3)) ? 1 : 0;
+                if (c >= 2)
+                {
+                    found = true;
+                    break;
+                }
+            }
+        }
+
+        return found;
+    }
+
+    public bool MatchType(PieceController piece, PieceController other)
+    {
+        if (!other || other.Removed || other.PieceType != piece.PieceType) return false;
 
         return true;
     }
@@ -343,9 +469,6 @@ public class GameController : MonoBehaviour
 
         SetPieceAt(other.Row, other.Col, piece);
         SetPieceAt(row, col, other);
-
-        //piece.transform.position = GetPiecePosition(piece.Row, piece.Col);
-        //other.transform.position = GetPiecePosition(other.Row, other.Col);
 
         m_state = GameState.Swapping;
     }

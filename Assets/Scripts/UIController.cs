@@ -6,42 +6,30 @@ using UnityEngine.UI;
 
 public class UIController : MonoBehaviour
 {
-    [SerializeField] private Button m_restartButton;
-    [SerializeField] private Text m_scoreText;
+    private StateMachine m_stateMachine;
 
     private void Awake()
     {
-        SetScore(0);
+        m_stateMachine = gameObject.AddComponent<StateMachine>();
     }
 
-    private void OnEnable()
+    private void Start()
     {
-        m_restartButton.onClick.AddListener(RestartButton_OnClick);
-
-        GameController.OnScoreUpdated += Instance_OnScoreUpdated;
+        ShowStart();
     }
 
-    private void OnDisable()
+    public void ShowStart()
     {
-        m_restartButton.onClick.RemoveListener(RestartButton_OnClick);
-
-        GameController.OnScoreUpdated -= Instance_OnScoreUpdated;
+        m_stateMachine.ChangeState<StartState>();
     }
 
-    private void RestartButton_OnClick()
+    public void ShowGame()
     {
-        GameController.Instance.RestartGame();
+        m_stateMachine.ChangeState<GameState>();
     }
 
-    private void Instance_OnScoreUpdated(object sender, EventArgs args)
+    public void ShowEnd()
     {
-        int score = GameController.Instance.Score;
-        
-        SetScore(score);
-    }
-
-    private void SetScore(int score)
-    {
-        m_scoreText.text = $"Score: {score}";
+        m_stateMachine.ChangeState<EndState>();
     }
 }
