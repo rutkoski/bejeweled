@@ -144,6 +144,8 @@ public class AnimationController : MonoBehaviour
     public void AnimateSwapRevert(PieceController piece, PieceController other)
     {
         m_swaps.Add(new SwapJob(piece, other, pieceSwapSpeed, true));
+
+        SFX.Instance.PlayOneShot(SFXData.Type.Negative);
     }
 
     public bool HasSwapJobs()

@@ -216,6 +216,8 @@ public class GameController : MonoBehaviour
         }
         else if (Merge())
         {
+            SFX.Instance.PlayOneShot(SFXData.Type.Positive);
+
             m_state = GameState.Merging;
         }
     }
