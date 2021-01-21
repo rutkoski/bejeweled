@@ -5,11 +5,25 @@ using UnityEngine;
 
 public class PieceController : MonoBehaviour
 {
+    [SerializeField] private Sprite[] m_sprites;
+
     [SerializeField] private int m_pieceType;
     public int PieceType
     {
         get => m_pieceType;
-        set { m_pieceType = value; }
+        set
+        {
+            if (m_pieceType == value) return;
+
+            m_pieceType = value;
+
+            if (m_pieceType == -1)
+            {
+                m_pieceType = UnityEngine.Random.Range(0, m_sprites.Length);
+            }
+
+            SetPieceType();
+        }
     }
 
     [SerializeField] private int m_row;
@@ -43,5 +57,17 @@ public class PieceController : MonoBehaviour
 
             transform.localScale = new Vector3(s, s, s);
         }
+    }
+
+    private void SetPieceType()
+    {
+        GetComponentInChildren<SpriteRenderer>().sprite = m_sprites[m_pieceType];
+    }
+
+    private void OnValidate()
+    {
+        m_pieceType = Math.Max(0, Math.Min(m_sprites.Length - 1, m_pieceType));
+
+        SetPieceType();
     }
 }
