@@ -24,21 +24,27 @@ public class GameController : MonoBehaviour
         End,
     }
 
+    [Tooltip("Amount of points for each piece in a merge")]
     [SerializeField] private int m_mergeScore;
 
+    [Tooltip("Represents the initial state of the match.")]
     [SerializeField] private BoardData m_boardData;
 
+    [Tooltip("Board size (rows)")]
     [SerializeField] private int m_rows;
     public int Rows => m_rows;
 
+    [Tooltip("Board size (columns)")]
     [SerializeField] private int m_cols;
     public int Cols => m_cols;
 
     private int[] m_board;
 
+    [Tooltip("Distance between the pieces on the board")]
     [SerializeField] private float m_pieceDistance;
     public float PieceDistance => m_pieceDistance;
 
+    [Tooltip("The container for the pieces")]
     [SerializeField] private Transform m_container;
     public Transform Container => m_container;
 
@@ -152,76 +158,109 @@ public class GameController : MonoBehaviour
             RestartGame();
         }
 
-        if (m_state == GameState.Init) return;
+        if (m_state == GameState.Init || m_state == GameState.End) return;
 
-        if (m_state == GameState.Dropping)
+        switch (m_state)
         {
-            bool animate = false;
+            /**
+             * Drop animation
+             */
 
-            foreach (PieceController piece in m_pieces)
-            {
-                if (!piece || piece.Removed) continue;
+            case GameState.Dropping:
+                bool animate = false;
 
-                animate |= AnimationController.Instance.AnimatePieceDrop(piece);
-            }
-
-            if (!animate)
-            {
-                m_state = GameState.Idle;
-
-                CheckEndGame();
-            }
-        }
-        else if (m_state == GameState.Swapping)
-        {
-            if (!AnimationController.Instance.HasSwapJobs())
-            {
-                m_state = GameState.Idle;
-            }
-        }
-        else if (m_state == GameState.Merging)
-        {
-            if (!AnimationController.Instance.AnimateMerge())
-            {
-                m_state = GameState.Spawning;
-            }
-        }
-        else if (m_state == GameState.Spawning)
-        {
-            for (int i = m_rows - 1; i >= 0; i--)
-            {
-                for (int j = 0; j < m_cols; j++)
+                foreach (PieceController piece in m_pieces)
                 {
-                    PieceController piece = GetPieceAt(i, j);
+                    if (!piece || piece.Removed) continue;
 
-                    if (piece)
+                    animate |= AnimationController.Instance.AnimatePieceDrop(piece);
+                }
+
+                if (!animate)
+                {
+                    m_state = GameState.Idle;
+
+                    CheckEndGame();
+                }
+
+                break;
+
+            /**
+             * Swap animation
+             */
+
+            case GameState.Swapping:
+                if (!AnimationController.Instance.HasSwapJobs())
+                {
+                    m_state = GameState.Idle;
+                }
+
+                break;
+
+            /**
+             * Merge animation
+             */
+
+            case GameState.Merging:
+                if (!AnimationController.Instance.AnimateMerge())
+                {
+                    m_state = GameState.Spawning;
+                }
+
+                break;
+
+            /**
+             * Spawn new pieces
+             */
+
+            case GameState.Spawning:
+                for (int i = m_rows - 1; i >= 0; i--)
+                {
+                    for (int j = 0; j < m_cols; j++)
                     {
-                        int row = FindEmptyRow(i, j);
+                        PieceController piece = GetPieceAt(i, j);
 
-                        if (row >= 0)
+                        if (piece)
                         {
-                            SetPieceAt(i, j, null);
-                            SetPieceAt(row, j, piece);
+                            int row = FindEmptyRow(i, j);
 
+                            if (row >= 0)
+                            {
+                                SetPieceAt(i, j, null);
+                                SetPieceAt(row, j, piece);
+
+                                m_state = GameState.Dropping;
+                            }
+                        }
+
+                        if (SpawnNewPieces(j))
+                        {
                             m_state = GameState.Dropping;
                         }
                     }
-
-                    if (SpawnNewPieces(j))
-                    {
-                        m_state = GameState.Dropping;
-                    }
                 }
-            }
-        }
-        else if (Merge())
-        {
-            SFX.Instance.PlayOneShot(SFXData.Type.Positive);
 
-            m_state = GameState.Merging;
+                break;
+
+            /**
+             * Check if pieces can be merged
+             */
+
+            default:
+                if (Merge())
+                {
+                    SFX.Instance.PlayOneShot(SFXData.Type.Positive);
+
+                    m_state = GameState.Merging;
+                }
+
+                break;
         }
     }
 
+    /**
+     * Game ends if there are no available plays
+     */
     private void CheckEndGame()
     {
         if (!HasAvailablePlays())
@@ -232,9 +271,12 @@ public class GameController : MonoBehaviour
         }
     }
 
-    private bool SpawnNewPieces(int j)
+    /**
+     * Spawn new pieces in specified column, if there is space available
+     */
+    private bool SpawnNewPieces(int col)
     {
-        int row = FindEmptyRow(j);
+        int row = FindEmptyRow(col);
 
         if (row < 0) return false;
 
@@ -242,8 +284,8 @@ public class GameController : MonoBehaviour
 
         while (row >= 0)
         {
-            PieceController piece = SpawnPiece(row, j, -1);
-            piece.transform.position = GetPiecePosition(i, j);
+            PieceController piece = SpawnPiece(row, col, -1);
+            piece.transform.position = GetPiecePosition(i, col);
 
             row--;
             i--;
@@ -252,6 +294,9 @@ public class GameController : MonoBehaviour
         return true;
     }
 
+    /**
+     * Check if there is at least one available play (pieces can be merged)
+     */
     private bool HasAvailablePlays()
     {
         bool found = false;
@@ -350,6 +395,9 @@ public class GameController : MonoBehaviour
         return found;
     }
 
+    /**
+     * Check if two pieces are of the same type
+     */
     public bool MatchType(PieceController piece, PieceController other)
     {
         if (!other || other.Removed || other.PieceType != piece.PieceType) return false;
@@ -357,6 +405,9 @@ public class GameController : MonoBehaviour
         return true;
     }
 
+    /**
+     * Check if piece will be merged
+     */
     public bool WillMerge(PieceController piece)
     {
         List<PieceController> pieces;
@@ -364,6 +415,9 @@ public class GameController : MonoBehaviour
         return WillMerge(piece, out pieces);
     }
 
+    /**
+     * Check if piece will be merged and fill list with merged pieces
+     */
     public bool WillMerge(PieceController piece, out List<PieceController> pieces)
     {
         pieces = new List<PieceController>();
@@ -427,6 +481,9 @@ public class GameController : MonoBehaviour
         return merged;
     }
 
+    /**
+     * Apply all available merges
+     */
     private bool Merge()
     {
         bool merged = false;
@@ -464,6 +521,9 @@ public class GameController : MonoBehaviour
         return merged;
     }
 
+    /**
+     * Swap two pieces
+     */
     public void SwapPieces(PieceController piece, PieceController other)
     {
         int row = piece.Row;
@@ -475,6 +535,9 @@ public class GameController : MonoBehaviour
         m_state = GameState.Swapping;
     }
 
+    /**
+     * Spawn piece of specified type at row and column
+     */
     private PieceController SpawnPiece(int row, int col, int pieceType)
     {
         PieceController piece = m_pieceFactory.Create(pieceType);
@@ -488,6 +551,9 @@ public class GameController : MonoBehaviour
         return piece;
     }
 
+    /**
+     * Spawn piece of specified type at column
+     */
     private PieceController SpawnPiece(int col, int pieceType)
     {
         int row = FindEmptyRow(col);
@@ -500,6 +566,9 @@ public class GameController : MonoBehaviour
         return SpawnPiece(row, col, pieceType);
     }
 
+    /**
+     * Set piece position
+     */
     public void SetPieceAt(int row, int col, PieceController piece)
     {
         m_pieces[GetIndex(row, col)] = piece;
@@ -511,6 +580,9 @@ public class GameController : MonoBehaviour
         }
     }
 
+    /**
+     * Find empty row at specified column
+     */
     private int FindEmptyRow(int col)
     {
         if (col < 0 || col >= m_cols)
@@ -526,6 +598,9 @@ public class GameController : MonoBehaviour
         return row;
     }
 
+    /**
+     * Find empty row at specified column, begining at row
+     */
     private int FindEmptyRow(int row, int col)
     {
         if (row < 0 || row >= m_rows || col < 0 || col >= m_cols)
@@ -539,6 +614,9 @@ public class GameController : MonoBehaviour
         return row;
     }
 
+    /**
+     * Get piece at position
+     */
     public PieceController GetPieceAt(int row, int col)
     {
         if (row < 0 || row >= m_rows || col < 0 || col >= m_cols)
@@ -547,6 +625,9 @@ public class GameController : MonoBehaviour
         return m_pieces[GetIndex(row, col)];
     }
 
+    /**
+     * Get piece absolute (world) position
+     */
     public Vector3 GetPiecePosition(int row, int col)
     {
         Vector3 position = m_container.transform.position;
